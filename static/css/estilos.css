@@ -1,0 +1,5 @@
+
+body { padding-bottom: 80px; }
+.card { border-radius: 16px; }
+.signature-pad { border: 1px dashed #999; border-radius: 8px; height: 160px; }
+.sticky-footer { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #eee; padding: 10px; }

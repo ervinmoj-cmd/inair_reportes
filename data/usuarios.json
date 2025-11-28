@@ -1,0 +1,17 @@
+{
+  "fernando": {
+    "password": "fernando123",
+    "prefijo": "F",
+    "nombre": "Fernando"
+  },
+  "cesar": {
+    "password": "cesar123",
+    "prefijo": "C",
+    "nombre": "César"
+  },
+  "hiorvard": {
+    "password": "hiorvard123",
+    "prefijo": "H",
+    "nombre": "Hiorvard"
+  }
+}

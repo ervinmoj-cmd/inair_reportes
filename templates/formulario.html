@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>InAIR · Reporte técnico</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body{ background:#f7f7fb }
+    .card{ border-radius:16px; box-shadow:0 6px 20px rgba(0,0,0,.06) }
+    .section-title{ font-weight:700; font-size:1.05rem }
+    .sig-box{ background:#fff; border:1px solid #e6e6e6; border-radius:10px }
+    .table-sm td, .table-sm th{ padding:.35rem .5rem; font-size:.9rem }
+    .grid-compact input{ height:32px; }
+    .sticky-title{ position:sticky; top:0; background:#fff; z-index:2 }
+
+    /* ====== MEJORAS EN MÓVIL ====== */
+    @media (max-width: 576px){
+      body { background:#fff; }
+      .card { border-radius:12px; box-shadow:none; }
+
+      /* Filas de “Lecturas”: apila etiqueta y campos */
+      .row.align-items-center > .col-8,
+      .row.align-items-center > .col-4 {
+        flex: 0 0 100%;
+        max-width: 100%;
+      }
+      .row.align-items-center { margin-bottom:.35rem; }
+
+      /* Inputs compactos */
+      .form-control, .form-select { height: 38px; padding:.35rem .5rem; }
+      .form-control.form-control-sm,
+      .form-select.form-select-sm { height: 34px; }
+
+      /* Tablas con scroll horizontal suave */
+      .table-responsive { -webkit-overflow-scrolling: touch; }
+
+      /* Firma más alta en móvil */
+      .sig-box canvas { height: 160px !important; }
+    }
+
+    /* Evita que celdas/inputs se “aplasten” en tablet */
+    @media (min-width: 577px) and (max-width: 992px){
+      .form-control, .form-select { height: 40px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container py-4">
+  <div class="card p-3 mb-4">
+    <div class="d-flex align-items-center gap-3">
+      <img src="{{ url_for('static', filename='img/logo_inair.png') }}" alt="InAIR" style="height:40px">
+      <div>
+        <div class="fw-bold">REPORTE TÉCNICO</div>
+        <div class="text-muted small">
+          Folio: <span class="text-danger fw-bold">{{ folio }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ id="frm-reporte" necesario para auto-guardado -->
+  <form id="frm-reporte"
+        action="{{ url_for('generar_pdf') }}"
+        method="post"
+        enctype="multipart/form-data"
+        class="card p-4 mb-5">
+    <input type="hidden" name="folio" value="{{ folio }}">
+    <input type="hidden" name="tecnico" value="{{ session.get('user_nombre','') }}">
+
+    <!-- Fecha + Localidad -->
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-sm-4">
+        <label class="form-label fw-bold">Fecha</label>
+        <input type="date" class="form-control" name="fecha" required>
+      </div>
+      <div class="col-12 col-sm-4">
+        <label class="form-label fw-bold">Localidad</label>
+        <select class="form-select" name="localidad" required>
+          <option value="Mexicali">Mexicali</option>
+          <option value="Tijuana">Tijuana</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Datos del cliente -->
+    <div class="mb-4">
+      <div class="section-title mb-2">Datos del cliente</div>
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label">Cliente</label>
+          <input class="form-control" name="cliente" required>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Contacto</label>
+          <input class="form-control" name="contacto">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">Teléfono</label>
+          <input class="form-control" name="telefono">
+        </div>
+        <div class="col-12 col-md-8">
+          <label class="form-label">Email</label>
+          <input class="form-control" name="email">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Dirección</label>
+          <input class="form-control" name="direccion">
+        </div>
+      </div>
+    </div>
+
+    <!-- Servicio -->
+    <div class="mb-4">
+      <div class="section-title mb-2">Servicio</div>
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <label class="form-label">Tipo de servicio</label>
+          <select class="form-select" name="tipo_servicio" id="tipo_servicio">
+            <option>Preventivo</option>
+            <option>Correctivo</option>
+            <option>Diagnóstico</option>
+            <option>Revisión</option>
+            <option>Bitácora</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-8">
+          <label class="form-label">Descripción del servicio</label>
+          <select class="form-select" name="descripcion_servicio" id="descripcion_servicio"></select>
+          <div class="form-text">Se precarga según el tipo de servicio.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Equipo -->
+    <div class="mb-4">
+      <div class="section-title mb-2">Datos del equipo</div>
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label">Tipo de equipo</label>
+          <select class="form-select" name="tipo_equipo" id="tipo_equipo">
+            {% for eq in lista_equipos %}<option>{{ eq }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">Modelo</label>
+          <input class="form-control" name="modelo">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">Serie</label>
+          <input class="form-control" name="serie">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">Marca</label>
+          <select class="form-select" name="marca" id="marca_select">
+            <option value="INGERSOLL RAND">Ingersoll Rand</option>
+            <option value="ATLAS COPCO">Atlas Copco</option>
+            <option value="QUINCY">Quincy</option>
+            <option value="OTROS">OTROS</option>
+          </select>
+          <div id="otra_marca_wrap" class="mt-2" style="display:none;">
+            <input class="form-control" type="text" name="otra_marca" placeholder="Escribe la marca">
+          </div>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">Potencia</label>
+          <input class="form-control" name="potencia" placeholder="Ej. 200">
+          <div class="form-text">
+            En el PDF saldrá como <span id="potencia_unidad_hint">“HP”</span>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preventivo -->
+    <div id="bloque_preventivo" class="mb-4">
+      <div class="section-title mb-2">Actividades (Preventivo)</div>
+      <div class="row row-cols-1 row-cols-md-2 g-2">
+        {% set acts = [
+          "Cambio de filtro de aire","Cambio de filtro de aceite","Cambio de elemento separador",
+          "Cambio de filtro panel control","Recuperar nivel de aceite","Cambio de aceite",
+          "Cambio de mangueras","Cambio válvula de desfogue","Cambio válvula check descarga",
+          "Cambio kit válvula mpcv","Cambio kit, válvula admisión","Cambio válvula paro de aceite",
+          "Cambio kit, val. termocontrol","Cambio de bandas","Reapretar conexiones mecánicas",
+          "Reapretar conexiones eléctricas","Limpieza línea de barrido","Limpieza trampa de condensados",
+          "Limpieza a enfriadores aire/aceite","Revisar funcionamiento de válvulas",
+          "Limpieza a platinos de contactores","Lubricación rodamiento de motor",
+          "Servicio a motor eléctrico","Limpieza general del equipo",
+          "Toma de muestra de aceite para análisis"
+        ] %}
+        {% for a in acts %}
+          <div class="col">
+            <label class="form-check">
+              <input class="form-check-input" type="checkbox" name="act_{{ loop.index }}">
+              <span class="form-check-label">{{ a }}</span>
+            </label>
+          </div>
+        {% endfor %}
+        <div class="col-12 mt-2">
+          <label class="form-label">OTRAS ACTIVIDADES</label>
+          <textarea class="form-control" name="act_otras" rows="2" placeholder="Escribe aquí..."></textarea>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label class="form-check">
+          <input class="form-check-input" type="checkbox" name="act_analisis_ruido" id="chk_ruido">
+          <span class="form-check-label fw-bold">ANÁLISIS DE RUIDOS EN RODAMIENTOS</span>
+        </label>
+        <div class="row g-2 mt-1" id="ruido_opts" style="display:none;">
+          <div class="col-12 col-md-3">
+            <select class="form-select" name="ruido_tipo" id="ruido_tipo">
+              <option value="R30">R30</option>
+              <option value="SPM">SPM</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-9" id="ruido_r30" style="display:none;">
+            <div class="row g-2">
+              <div class="col-md-4"><input class="form-control" name="ruido_resultado" placeholder="Resultado"></div>
+              <div class="col-md-8"><input class="form-control" name="ruido_observaciones" placeholder="Observaciones"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="spm_grid" class="table-responsive mt-3" style="display:none;">
+          <table class="table table-bordered table-sm align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="min-width:220px">ANÁLISIS DE RUIDO EN RODAMIENTOS (SPM)</th>
+                <th>MBRG</th><th>BG</th><th>LPMI-MRI</th><th>LPM2-MR2</th><th>HPM1</th><th>HPM2</th><th>HPF1</th><th>HPF2</th><th>LPF1</th><th>LPF2</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set spm_rows = [
+                ("CARGA dBm","carga_dbm"),
+                ("CARGA dBc","carga_dbc"),
+                ("CARGA dBi","carga_dbi"),
+                ("DESCARGA dbm","descarga_dbm"),
+                ("DESCARGA dBc","descarga_dbc"),
+                ("DESCARGA dBi","descarga_dbi")
+              ] %}
+              {% for row_lbl, row_key in spm_rows %}
+              <tr>
+                <th class="fw-bold">{{ row_lbl }}</th>
+                {% for col in ["mbrg","bg","lpmi_mri","lpm2_mr2","hpm1","hpm2","hpf1","hpf2","lpf1","lpf2"] %}
+                <td><input class="form-control form-control-sm" name="{{ row_key }}_{{ col }}" placeholder="N/A"></td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================
+         Actividades (Preventivo – Secador)
+         Solo se mostrará vía JS cuando:
+         - tipo_servicio = Preventivo
+         - tipo_equipo contiene "Secador"
+         ========================== -->
+    <div id="bloque_preventivo_secador" class="mb-4" style="display:none;">
+      <div class="section-title mb-2">Actividades (Preventivo – Secador)</div>
+
+      <div class="row">
+        <div class="col-12 col-md-6">
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="act_sec_rev_general" name="act_sec_rev_general" value="1">
+            <label class="form-check-label" for="act_sec_rev_general">
+              Revisión general del equipo
+            </label>
+          </div>
+
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="act_sec_reapriete_electrico" name="act_sec_reapriete_electrico" value="1">
+            <label class="form-check-label" for="act_sec_reapriete_electrico">
+              Reapriete de conexiones eléctricas
+            </label>
+          </div>
+
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="act_sec_reapriete_mecanico" name="act_sec_reapriete_mecanico" value="1">
+            <label class="form-check-label" for="act_sec_reapriete_mecanico">
+              Reapriete de conexiones mecánicas
+            </label>
+          </div>
+
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="act_sec_limpieza_general" name="act_sec_limpieza_general" value="1">
+            <label class="form-check-label" for="act_sec_limpieza_general">
+              Limpieza general del equipo
+            </label>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="act_sec_cambio_prefiltro" name="act_sec_cambio_prefiltro" value="1">
+            <label class="form-check-label" for="act_sec_cambio_prefiltro">
+              Cambio de prefiltro
+            </label>
+          </div>
+
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="act_sec_cambio_posfiltro" name="act_sec_cambio_posfiltro" value="1">
+            <label class="form-check-label" for="act_sec_cambio_posfiltro">
+              Cambio de pos filtro
+            </label>
+          </div>
+
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="act_sec_cambio_valvulas" name="act_sec_cambio_valvulas" value="1">
+            <label class="form-check-label" for="act_sec_cambio_valvulas">
+              Cambio de válvulas
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label class="form-label">OTRAS ACTIVIDADES</label>
+        <textarea class="form-control" name="otras_actividades_secador" rows="3" placeholder="Escribe aquí..."></textarea>
+      </div>
+    </div>
+
+    <!-- Correctivo / Diagnóstico / Revisión -->
+    <div id="bloque_correctivo" class="mb-4" style="display:none;">
+      <div class="section-title mb-2">Detalle del servicio</div>
+      <div class="row g-3">
+        <div class="col-12"><label class="form-label">Diagnóstico del problema</label><textarea class="form-control" name="diag_problema" rows="2"></textarea></div>
+        <div class="col-12"><label class="form-label">Causa raíz</label><textarea class="form-control" name="causa_raiz" rows="2"></textarea></div>
+        <div class="col-12"><label class="form-label">Actividades realizadas</label><textarea class="form-control" name="actividades_realizadas" rows="2"></textarea></div>
+        <div class="col-12"><label class="form-label">Refacciones utilizadas</label><textarea class="form-control" name="refacciones" rows="2"></textarea></div>
+        <div class="col-12"><label class="form-label">Condiciones en que se encontró el equipo</label><textarea class="form-control" name="cond_encontro" rows="2"></textarea></div>
+        <div class="col-12"><label class="form-label">Condiciones en que se entrega el equipo</label><textarea class="form-control" name="cond_entrega" rows="2"></textarea></div>
+      </div>
+    </div>
+
+        <!-- LECTURAS DEL EQUIPO -->
+    <div class="mb-4">
+      <div class="section-title mb-2">Lecturas del equipo</div>
+
+      <!-- Lecturas · COMPRESOR (vista normal) -->
+      <div class="card shadow-sm border-0 mb-4" id="card_lecturas_compresor">
+        <div class="row g-4">
+          <!-- Datos generales -->
+          <div class="col-12 col-lg-6">
+            <div class="card p-3">
+              <div class="fw-bold mb-2">Datos generales</div>
+
+              <!-- 1 -->
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Horas totales</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="dg_1">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="horas" name="dg_1_unit"></select>
+                </div>
+              </div>
+              <!-- 2 -->
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Horas de carga</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="dg_2">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="horas" name="dg_2_unit"></select>
+                </div>
+              </div>
+              <!-- 3 -->
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Presión objetivo/descarga</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="dg_3">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="presion" name="dg_3_unit"></select>
+                </div>
+              </div>
+              <!-- 4 -->
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Presión de carga</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="dg_4">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="presion" name="dg_4_unit"></select>
+                </div>
+              </div>
+              <!-- 5 -->
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Presión descarga del paquete</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="dg_5">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="presion" name="dg_5_unit"></select>
+                </div>
+              </div>
+              <!-- 6 -->
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Temperatura ambiente</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="dg_6">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="temp" name="dg_6_unit"></select>
+                </div>
+              </div>
+              <!-- 7 -->
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Temp. descarga del paquete</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="dg_7">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="temp" name="dg_7_unit"></select>
+                </div>
+              </div>
+              <!-- 8 -->
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Temp. descarga del aire-end</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="dg_8">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="temp" name="dg_8_unit"></select>
+                </div>
+              </div>
+              <!-- 9 -->
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Temp. inyección de refrigerante</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="dg_9">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="temp" name="dg_9_unit"></select>
+                </div>
+              </div>
+              <!-- 10 -->
+              <div class="row align-items-center">
+                <div class="col-8 small">Caída de presión separador</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="dg_10">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="presion" name="dg_10_unit"></select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- OIL FREE -->
+          <div class="col-12 col-lg-6">
+            <div class="card p-3" id="card_oilfree" style="display:none;">
+              <div class="fw-bold mb-2">Compresor (oil free)</div>
+
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Temp. entrada aire 1ra etapa</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="of_1">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="temp" name="of_1_unit"></select>
+                </div>
+              </div>
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Temp. descarga aire 1ra etapa</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="of_2">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="temp" name="of_2_unit"></select>
+                </div>
+              </div>
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Presión descarga 1ra etapa</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="of_3">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="presion" name="of_3_unit"></select>
+                </div>
+              </div>
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Temp. entrada 2da etapa</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="of_4">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="temp" name="of_4_unit"></select>
+                </div>
+              </div>
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Temp. descarga 2da etapa</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="of_5">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="temp" name="of_5_unit"></select>
+                </div>
+              </div>
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Presión descarga 2da etapa</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="of_6">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="presion" name="of_6_unit"></select>
+                </div>
+              </div>
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Temperatura del aceite</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="of_7">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="temp" name="of_7_unit"></select>
+                </div>
+              </div>
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Presión de aceite</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="of_8">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="presion" name="of_8_unit"></select>
+                </div>
+              </div>
+              <div class="row align-items-center mb-2">
+                <div class="col-8 small">Vacío de entrada</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="of_9">
+                  <select class="form-select form-select-sm unidad-select" data-tipo="presion" name="of_9_unit"></select>
+                </div>
+              </div>
+              <div class="row align-items-center">
+                <div class="col-8 small">(otro)</div>
+                <div class="col-4 d-flex gap-2">
+                  <input class="form-control form-control-sm" name="of_10">
+                  <select class="form-select form-select-sm unidad-select" name="of_10_unit">
+                    <option value="">—</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lecturas · SECADOR -->
+      <div class="card shadow-sm border-0 p-3 mb-4" id="card_lecturas_secador" style="display:none;">
+        <div class="row g-3">
+          <!-- Temperatura de aire de entrada -->
+          <div class="col-12 col-md-6 d-flex align-items-center">
+            <div class="me-2 flex-grow-1">
+              <label class="form-label mb-0">Temperatura de aire de entrada</label>
+            </div>
+            <div class="me-2" style="width:120px;">
+              <input class="form-control form-control-sm" name="sec_temp_aire_entrada">
+            </div>
+            <div style="width:90px;">
+              <select class="form-select form-select-sm unidad-select" name="sec_temp_aire_entrada_u" data-tipo="temp"></select>
+            </div>
+          </div>
+
+          <!-- Temperatura de aire de salida -->
+          <div class="col-12 col-md-6 d-flex align-items-center">
+            <div class="me-2 flex-grow-1">
+              <label class="form-label mb-0">Temperatura de aire de salida</label>
+            </div>
+            <div class="me-2" style="width:120px;">
+              <input class="form-control form-control-sm" name="sec_temp_aire_salida">
+            </div>
+            <div style="width:90px;">
+              <select class="form-select form-select-sm unidad-select" name="sec_temp_aire_salida_u" data-tipo="temp"></select>
+            </div>
+          </div>
+
+          <!-- Temperatura del calentador -->
+          <div class="col-12 col-md-6 d-flex align-items-center">
+            <div class="me-2 flex-grow-1">
+              <label class="form-label mb-0">Temperatura del calentador</label>
+            </div>
+            <div class="me-2" style="width:120px;">
+              <input class="form-control form-control-sm" name="sec_temp_calentador">
+            </div>
+            <div style="width:90px;">
+              <select class="form-select form-select-sm unidad-select" name="sec_temp_calentador_u" data-tipo="temp"></select>
+            </div>
+          </div>
+
+          <!-- Temperatura ambiente -->
+          <div class="col-12 col-md-6 d-flex align-items-center">
+            <div class="me-2 flex-grow-1">
+              <label class="form-label mb-0">Temperatura ambiente</label>
+            </div>
+            <div class="me-2" style="width:120px;">
+              <input class="form-control form-control-sm" name="sec_temp_ambiente">
+            </div>
+            <div style="width:90px;">
+              <select class="form-select form-select-sm unidad-select" name="sec_temp_ambiente_u" data-tipo="temp"></select>
+            </div>
+          </div>
+
+          <!-- Punto de rocío -->
+          <div class="col-12 col-md-6 d-flex align-items-center">
+            <div class="me-2 flex-grow-1">
+              <label class="form-label mb-0">Punto de rocío</label>
+            </div>
+            <div class="me-2" style="width:120px;">
+              <input class="form-control form-control-sm" name="sec_punto_rocio">
+            </div>
+            <div style="width:90px;">
+              <select class="form-select form-select-sm unidad-select" name="sec_punto_rocio_u" data-tipo="temp"></select>
+            </div>
+          </div>
+
+          <!-- Tiempo de ciclo -->
+          <div class="col-12 col-md-6 d-flex align-items-center">
+            <div class="me-2 flex-grow-1">
+              <label class="form-label mb-0">Tiempo de ciclo</label>
+            </div>
+            <div class="me-2" style="width:120px;">
+              <input class="form-control form-control-sm" name="sec_tiempo_ciclo" placeholder="Ej. 5 min">
+            </div>
+            <div style="width:90px;"></div>
+          </div>
+
+          <!-- Horas totales -->
+          <div class="col-12 col-md-6 d-flex align-items-center">
+            <div class="me-2 flex-grow-1">
+              <label class="form-label mb-0">Horas totales</label>
+            </div>
+            <div class="me-2" style="width:120px;">
+              <input class="form-control form-control-sm" name="sec_horas_totales">
+            </div>
+            <div style="width:90px;">
+              <select class="form-select form-select-sm unidad-select" name="sec_horas_totales_u" data-tipo="horas"></select>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-4">
+
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label">Condiciones de prefiltro</label>
+            <textarea class="form-control" name="sec_condicion_prefiltro" rows="2" placeholder="Ej. Limpio / saturado / reemplazado..."></textarea>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Condiciones de pos filtro</label>
+            <textarea class="form-control" name="sec_condicion_posfiltro" rows="2" placeholder="Ej. Limpio / saturado / reemplazado..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Datos eléctricos · COMPRESOR (vista normal) -->
+      <div class="card p-3 mt-3" id="card_electrico_compresor">
+        <div class="fw-bold mb-2">Datos eléctricos</div>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>MEDICIÓN</th>
+                <th class="text-center">L1 / L1-2</th>
+                <th class="text-center">L2 / L2-3</th>
+                <th class="text-center">L3 / L3-1</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for titulo, key in e3 %}
+              <tr>
+                <th>{{ titulo }}</th>
+                {% if key in ['v_carga','v_descarga'] %}
+                <td><input class="form-control form-control-sm" name="{{ key }}_l12"></td>
+                <td><input class="form-control form-control-sm" name="{{ key }}_l23"></td>
+                <td><input class="form-control form-control-sm" name="{{ key }}_l31"></td>
+                {% else %}
+                <td><input class="form-control form-control-sm" name="{{ key }}_l1"></td>
+                <td><input class="form-control form-control-sm" name="{{ key }}_l2"></td>
+                <td><input class="form-control form-control-sm" name="{{ key }}_l3"></td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+              {% for titulo, key in e1 %}
+              <tr>
+                <th>{{ titulo }}</th>
+                <td colspan="3"><input class="form-control form-control-sm" name="{{ key }}"></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Datos eléctricos · SECADOR (solo 6 valores) -->
+      <div class="card p-3 mt-3" id="card_electrico_secador" style="display:none;">
+        <div class="fw-bold mb-2">Datos eléctricos</div>
+        <div class="table-responsive">
+          <table class="table table-bordered table-sm align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>MEDICIÓN</th>
+                <th class="text-center">L1 / L1-2</th>
+                <th class="text-center">L2 / L2-3</th>
+                <th class="text-center">L3 / L3-1</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Corriente comp. en carga (L1, L2, L3) -->
+              <tr>
+                <th>Corriente comp. en carga</th>
+                <td><input class="form-control form-control-sm" name="i_carga_l1"></td>
+                <td><input class="form-control form-control-sm" name="i_carga_l2"></td>
+                <td><input class="form-control form-control-sm" name="i_carga_l3"></td>
+              </tr>
+
+              <!-- Voltaje comp. en carga (L1-L2, L2-L3, L1-L3) -->
+              <tr>
+                <th>Voltaje comp. en carga</th>
+                <td><input class="form-control form-control-sm" name="v_carga_l12"></td>
+                <td><input class="form-control form-control-sm" name="v_carga_l23"></td>
+                <td><input class="form-control form-control-sm" name="v_carga_l31"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Observaciones -->
+    <div class="mb-4">
+      <div class="section-title mb-2">Observaciones y recomendaciones</div>
+      <textarea class="form-control" name="observaciones" rows="3"></textarea>
+    </div>
+
+    <!-- Fotos -->
+    <div class="mb-4">
+      <div class="section-title mb-2">Evidencias fotográficas <span id="fotos_hint">(máx. 4)</span></div>
+      <div class="row g-3" id="fotos_grid">
+        {% for i in range(1,5) %}
+        <div class="col-12 col-md-6 foto-item" data-index="{{ i }}">
+          <div class="form-text mb-1">Foto {{ i }}</div>
+          <input class="form-control" type="file" accept="image/*" name="foto{{i}}">
+          <input class="form-control mt-2" name="foto{{i}}_desc" placeholder="Descripción">
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Firmas -->
+    <div class="mb-4">
+      <div class="section-title mb-2">Firmas</div>
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <div class="sig-box p-2">
+            <canvas id="firma_tecnico_canvas" style="width:100%; height:120px;"></canvas>
+          </div>
+          <div class="mt-2 d-flex gap-2">
+            <input class="form-control" name="firma_tecnico_nombre" placeholder="Nombre del técnico">
+            <button type="button" id="btn_clear_tecnico" class="btn btn-outline-secondary">Borrar</button>
+          </div>
+          <input type="hidden" id="firma_tecnico_data" name="firma_tecnico_data">
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="sig-box p-2">
+            <canvas id="firma_cliente_canvas" style="width:100%; height:120px;"></canvas>
+          </div>
+          <div class="mt-2 d-flex gap-2">
+            <input class="form-control" name="firma_cliente_nombre" placeholder="Nombre del cliente">
+            <button type="button" id="btn_clear_cliente" class="btn btn-outline-secondary">Borrar</button>
+          </div>
+          <input type="hidden" id="firma_cliente_data" name="firma_cliente_data">
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ Botón para limpiar borrador + Generar PDF -->
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" id="btn-clear-draft" class="btn btn-outline-secondary">Borrar borrador</button>
+      <button class="btn btn-primary px-4">Generar PDF</button>
+    </div>
+  </form>
+</div>
+
+<div class="d-flex flex-wrap gap-2 justify-content-end mt-3">
+  <!-- Abre el modal con la lista de borradores -->
+  <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalBorradores">
+    Ver borradores
+  </button>
+
+  <!-- Crea un folio nuevo y limpia -->
+  <form action="{{ url_for('nuevo_folio') }}" method="post" class="d-inline">
+    <button class="btn btn-outline-secondary" type="submit">Nuevo reporte</button>
+  </form>
+</div>
+
+<!-- Exponemos el folio para el JS (auto-guardado/borradores) -->
+<script>
+  window.__FOLIO__ = "{{ folio }}";
+</script>
+
+<!-- Modal: Borradores guardados en este dispositivo -->
+<div class="modal fade" id="modalBorradores" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Borradores en este dispositivo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="lista-borradores" class="list-group small"></div>
+        <div class="text-muted mt-3">Nota: los borradores se guardan en este navegador y este dispositivo.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap JS (necesario para el modal) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Tu JS con auto-guardado, SPM/R30, Oil-Free, firmas, etc. -->
+<script src="{{ url_for('static', filename='js/interactividad.js') }}"></script>
+</body>
+</html>
