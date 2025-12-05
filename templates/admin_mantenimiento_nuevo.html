@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuevo Plan de Mantenimiento - INAIR</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>🔧 Nuevo Plan de Mantenimiento</h1>
+            <div class="user-info">
+                <a href="{{ url_for('admin_mantenimiento') }}" class="btn btn-secondary btn-sm">Volver a Planes</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm">Cerrar Sesión</a>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <h2>Crear Plan de Mantenimiento</h2>
+            </div>
+            <div style="padding: 30px;">
+                <form method="POST" action="{{ url_for('admin_mantenimiento_nuevo') }}">
+                    <div class="form-group">
+                        <label>Cliente *</label>
+                        <select name="cliente_id" required>
+                            <option value="">Seleccionar cliente...</option>
+                            {% for client in clients %}
+                            <option value="{{ client.id }}">{{ client.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tipo de Equipo *</label>
+                        <select name="tipo_equipo" required>
+                            <option value="">Seleccionar tipo...</option>
+                            {% for equipo in lista_equipos %}
+                            <option value="{{ equipo }}">{{ equipo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Modelo</label>
+                            <input type="text" name="modelo">
+                        </div>
+                        <div class="form-group">
+                            <label>Serie</label>
+                            <input type="text" name="serie">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Frecuencia de Mantenimiento *</label>
+                            <select name="frecuencia_dias" required>
+                                <option value="">Seleccionar frecuencia...</option>
+                                <option value="30">Mensual (30 días)</option>
+                                <option value="60">Bimestral (60 días)</option>
+                                <option value="90">Trimestral (90 días)</option>
+                                <option value="120">Cuatrimestral (120 días)</option>
+                                <option value="180">Semestral (180 días)</option>
+                                <option value="365">Anual (365 días)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha del Primer Servicio *</label>
+                            <input type="date" name="fecha_inicial" required>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 30px;">
+                        <button type="submit" class="btn btn-primary">Crear Plan</button>
+                        <a href="{{ url_for('admin_mantenimiento') }}" class="btn btn-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

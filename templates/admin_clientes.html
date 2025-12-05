@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Clientes - INAIR</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>👥 Gestión de Clientes</h1>
+            <div class="user-info">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary btn-sm">Volver al Panel</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm">Cerrar Sesión</a>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <h2>Lista de Clientes</h2>
+                <button class="btn btn-primary" onclick="openModal('addClientModal')">+ Agregar Cliente</button>
+            </div>
+
+            {% if clients %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Contacto</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for client in clients %}
+                    <tr>
+                        <td><strong>{{ client.nombre }}</strong></td>
+                        <td>{{ client.contacto or 'N/A' }}</td>
+                        <td>{{ client.telefono or 'N/A' }}</td>
+                        <td>{{ client.email or 'N/A' }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info"
+                                onclick='manageEquipment({{ client.id|tojson }}, {{ client.nombre|tojson|replace("'
+                                \''", "&#39;" ) }})'>Equipos</button>
+                            <button class="btn btn-sm btn-secondary"
+                                onclick='editClient({{ client.id|tojson }}, {{ client.nombre|tojson|replace("'
+                                \''", "&#39;" ) }}, {{ client.contacto|tojson|replace("'\''", "&#39;" ) }}, {{
+                                client.telefono|tojson|replace("'\''", "&#39;" ) }}, {{
+                                client.email|tojson|replace("'\''", "&#39;" ) }}, {{
+                                client.direccion|tojson|replace("'\''", "&#39;" ) }})'>Editar</button>
+                            <button class="btn btn-sm btn-danger"
+                                onclick='deleteClient({{ client.id|tojson }}, {{ client.nombre|tojson|replace("'
+                                \''", "&#39;" ) }})'>Eliminar</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <div style="font-size: 64px; margin-bottom: 20px; opacity: 0.5;">👥</div>
+                <h3>No hay clientes registrados</h3>
+                <p>Comienza agregando tu primer cliente</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Add Client Modal -->
+    <div id="addClientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Agregar Cliente</h2>
+                <button class="close-modal" onclick="closeModal('addClientModal')">&times;</button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_clientes_nuevo') }}">
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <input type="text" name="nombre" required>
+                </div>
+                <div class="form-group">
+                    <label>Contacto</label>
+                    <input type="text" name="contacto">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="text" name="telefono">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Dirección</label>
+                    <textarea name="direccion"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Guardar Cliente</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Client Modal -->
+    <div id="editClientModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Editar Cliente</h2>
+                <button class="close-modal" onclick="closeModal('editClientModal')">&times;</button>
+            </div>
+            <form id="editClientForm" method="POST">
+                <div class="form-group">
+                    <label>Nombre *</label>
+                    <input type="text" name="nombre" id="edit_nombre" required>
+                </div>
+                <div class="form-group">
+                    <label>Contacto</label>
+                    <input type="text" name="contacto" id="edit_contacto">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="text" name="telefono" id="edit_telefono">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" id="edit_email">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Dirección</label>
+                    <textarea name="direccion" id="edit_direccion"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Actualizar Cliente</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Manage Equipment Modal -->
+    <div id="manageEquipmentModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>Equipos de <span id="equipClientName"></span></h2>
+                <button class="close-modal" onclick="closeModal('manageEquipmentModal')">&times;</button>
+            </div>
+
+            <!-- Existing Equipment List -->
+            <div style="margin-bottom: 20px; max-height: 200px; overflow-y: auto;">
+                <table class="table table-sm" id="equipmentTable">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Modelo</th>
+                            <th>Serie</th>
+                            <th>Próximo Servicio</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="equipmentList">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+                <div id="noEquipmentMsg" style="text-align: center; padding: 20px; color: #666; display: none;">
+                    No hay equipos registrados para este cliente.
+                </div>
+            </div>
+
+            <hr>
+
+            <h3>Agregar Nuevo Equipo</h3>
+            <form id="addEquipmentForm" method="POST">
+                <!-- Basic Info -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo de Equipo *</label>
+                        <select name="tipo_equipo" id="tipoEquipoSelect" required>
+                            <option value="">Seleccione...</option>
+                            {% for eq in lista_equipos %}
+                            <option value="{{ eq }}">{{ eq }}</option>
+                            {% endfor %}
+                            <option value="OTRO">OTRO</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Modelo</label>
+                        <input type="text" name="modelo">
+                    </div>
+                    <div class="form-group">
+                        <label>Serie</label>
+                        <input type="text" name="serie">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Marca</label>
+                        <input type="text" name="marca">
+                    </div>
+                    <div class="form-group">
+                        <label>Potencia</label>
+                        <input type="text" name="potencia">
+                    </div>
+                </div>
+
+                <!-- Maintenance Info -->
+                <h4 style="margin-top: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Mantenimiento</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Último Servicio</label>
+                        <input type="date" name="ultimo_servicio">
+                    </div>
+                    <div class="form-group">
+                        <label>Frecuencia (Meses)</label>
+                        <input type="number" name="frecuencia_meses" value="1" min="1">
+                    </div>
+                </div>
+
+                <!-- Service Kits Tabs -->
+                <h4 style="margin-top: 15px;">Kits de Mantenimiento (Refacciones)</h4>
+                <div class="tabs">
+                    <button type="button" class="tab-btn active" onclick="openTab(event, 'kit2000')">2000 Hrs</button>
+                    <button type="button" class="tab-btn" onclick="openTab(event, 'kit4000')">4000 Hrs</button>
+                    <button type="button" class="tab-btn" onclick="openTab(event, 'kit6000')">6000 Hrs</button>
+                    <button type="button" class="tab-btn" onclick="openTab(event, 'kit8000')">8000 Hrs</button>
+                    <button type="button" class="tab-btn" onclick="openTab(event, 'kit16000')">16000 Hrs</button>
+                </div>
+
+                <!-- Kit Content -->
+                <div id="kit2000" class="tab-content active">
+                    <div class="parts-container" id="parts_2000"></div>
+                    <button type="button" class="btn btn-sm btn-secondary"
+                        onclick="addPartRow('parts_2000', 'kit_2000')">+ Agregar Refacción</button>
+                    <button type="button" class="btn btn-sm btn-info"
+                        onclick="openBulkUpload('parts_2000', 'kit_2000')">📄 Carga Masiva</button>
+                </div>
+                <div id="kit4000" class="tab-content">
+                    <div class="parts-container" id="parts_4000"></div>
+                    <button type="button" class="btn btn-sm btn-secondary"
+                        onclick="addPartRow('parts_4000', 'kit_4000')">+ Agregar Refacción</button>
+                    <button type="button" class="btn btn-sm btn-info"
+                        onclick="openBulkUpload('parts_4000', 'kit_4000')">📄 Carga Masiva</button>
+                </div>
+                <div id="kit6000" class="tab-content">
+                    <div class="parts-container" id="parts_6000"></div>
+                    <button type="button" class="btn btn-sm btn-secondary"
+                        onclick="addPartRow('parts_6000', 'kit_6000')">+ Agregar Refacción</button>
+                    <button type="button" class="btn btn-sm btn-info"
+                        onclick="openBulkUpload('parts_6000', 'kit_6000')">📄 Carga Masiva</button>
+                </div>
+                <div id="kit8000" class="tab-content">
+                    <div class="parts-container" id="parts_8000"></div>
+                    <button type="button" class="btn btn-sm btn-secondary"
+                        onclick="addPartRow('parts_8000', 'kit_8000')">+ Agregar Refacción</button>
+                    <button type="button" class="btn btn-sm btn-info"
+                        onclick="openBulkUpload('parts_8000', 'kit_8000')">📄 Carga Masiva</button>
+                </div>
+                <div id="kit16000" class="tab-content">
+                    <div class="parts-container" id="parts_16000"></div>
+                    <button type="button" class="btn btn-sm btn-secondary"
+                        onclick="addPartRow('parts_16000', 'kit_16000')">+ Agregar Refacción</button>
+                    <button type="button" class="btn btn-sm btn-info"
+                        onclick="openBulkUpload('parts_16000', 'kit_16000')">📄 Carga Masiva</button>
+                </div>
+
+                <div style="margin-top: 20px; text-align: right;">
+                    <button type="submit" class="btn btn-success">Guardar Equipo Completo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk Upload Modal -->
+    <div id="bulkUploadModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Carga Masiva de Refacciones</h2>
+                <button class="close-modal" onclick="closeModal('bulkUploadModal')">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <p><strong>Instrucciones:</strong> Pega los datos desde Excel.<br>El sistema detectará automáticamente
+                    si tienes 2 o 3 columnas.</p>
+                <textarea id="bulkText" rows="10"
+                    style="width: 100%; padding: 10px; border: 1px solid #ccc; font-family: monospace;"
+                    placeholder="Ejemplo (copiar desde Excel):&#10;1&#9;ELEMENT,AIR FILTER&#9;39588470&#10;1&#9;FILTER,COOLANT&#9;39907175"></textarea>
+                <input type="hidden" id="bulkContainerId">
+                <input type="hidden" id="bulkPrefix">
+                <div style="margin-top: 15px; text-align: right;">
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeModal('bulkUploadModal')">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="processBulkUpload()">Procesar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .tabs {
+            overflow: hidden;
+            border-bottom: 1px solid #ccc;
+            margin-bottom: 10px;
+        }
+
+        .tab-btn {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 10px 16px;
+            transition: 0.3s;
+        }
+
+        .tab-btn:hover {
+            background-color: #ddd;
+        }
+
+        .tab-btn.active {
+            background-color: #ccc;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-top: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .part-row {
+            display: grid;
+            grid-template-columns: 80px 1fr 150px 40px;
+            gap: 10px;
+            margin-bottom: 5px;
+            align-items: center;
+        }
+
+        .part-row input[type="number"] {
+            width: 100%;
+        }
+
+        .part-row input[type="text"] {
+            width: 100%;
+        }
+    </style>
+
+    <script>
+        console.log('Admin script loaded');
+
+        let currentClientId = null;
+
+        function openModal(modalId) {
+            console.log('Opening modal:', modalId);
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('active');
+            } else {
+                console.error('Modal not found:', modalId);
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function editClient(id, nombre, contacto, telefono, email, direccion) {
+            document.getElementById('edit_nombre').value = nombre;
+            document.getElementById('edit_contacto').value = contacto || '';
+            document.getElementById('edit_telefono').value = telefono || '';
+            document.getElementById('edit_email').value = email || '';
+            document.getElementById('edit_direccion').value = direccion || '';
+            document.getElementById('editClientForm').action = `/admin/clientes/editar/${id}`;
+            openModal('editClientModal');
+        }
+
+        function deleteClient(id, nombre) {
+            if (confirm(`¿Estás seguro de eliminar al cliente "${nombre}"?`)) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/admin/clientes/eliminar/${id}`;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        function manageEquipment(clientId, clientName) {
+            currentClientId = clientId;
+            document.getElementById('equipClientName').textContent = clientName;
+            document.getElementById('addEquipmentForm').action = `/admin/clientes/${clientId}/equipos`;
+
+            ['2000', '4000', '6000', '8000', '16000'].forEach(h => {
+                const container = document.getElementById(`parts_${h}`);
+                if (container) {
+                    container.innerHTML = '';
+                    addPartRow(`parts_${h}`, `kit_${h}`);
+                }
+            });
+
+            loadEquipmentTypesForClient(clientId);
+
+            fetch(`/api/equipos/${clientId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('equipmentList');
+                    const noMsg = document.getElementById('noEquipmentMsg');
+                    const table = document.getElementById('equipmentTable');
+
+                    tbody.innerHTML = '';
+
+                    if (data.length === 0) {
+                        table.style.display = 'none';
+                        noMsg.style.display = 'block';
+                    } else {
+                        table.style.display = 'table';
+                        noMsg.style.display = 'none';
+
+                        data.forEach(eq => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td>${eq.tipo_equipo}</td>
+                                <td>${eq.modelo || '-'}</td>
+                                <td>${eq.serie || '-'}</td>
+                                <td>${eq.proximo_servicio || '-'}</td>
+                                <td>
+                                    <form method="POST" action="/admin/equipos/eliminar/${eq.id}" style="display:inline;" onsubmit="return confirm('¿Eliminar este equipo?');">
+                                        <button type="submit" class="btn btn-sm btn-danger" style="padding: 2px 5px; font-size: 10px;">X</button>
+                                    </form>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+
+                    openModal('manageEquipmentModal');
+                })
+                .catch(err => console.error('Error fetching equipment:', err));
+        }
+
+        function loadEquipmentTypesForClient(clientId) {
+            fetch(`/api/tipos_equipo/${clientId}`)
+                .then(response => response.json())
+                .then(clientTypes => {
+                    const select = document.getElementById('tipoEquipoSelect');
+                    const options = select.options;
+
+                    for (let i = 0; i < options.length; i++) {
+                        const opt = options[i];
+                        if (!opt.value) continue;
+
+                        let text = opt.textContent.replace(/^⭐\s/, '');
+
+                        if (clientTypes.includes(opt.value)) {
+                            opt.textContent = `⭐ ${text}`;
+                            opt.style.fontWeight = 'bold';
+                            opt.style.color = '#0d6efd';
+                        } else {
+                            opt.textContent = text;
+                            opt.style.fontWeight = 'normal';
+                            opt.style.color = '';
+                        }
+                    }
+                })
+                .catch(err => console.error('Error loading equipment types:', err));
+        }
+
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+                tabcontent[i].classList.remove("active");
+            }
+            tablinks = document.getElementsByClassName("tab-btn");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            document.getElementById(tabName).classList.add("active");
+            if (evt) {
+                evt.currentTarget.className += " active";
+            }
+        }
+
+        function addPartRow(containerId, prefix) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = 'part-row';
+            div.innerHTML = `
+                <input type="number" name="${prefix}_qty[]" placeholder="Cant." min="1">
+                <input type="text" name="${prefix}_desc[]" placeholder="Descripción">
+                <input type="text" name="${prefix}_partnum[]" placeholder="Núm. Parte">
+                <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0 5px;">&times;</button>
+            `;
+            container.appendChild(div);
+        }
+
+        function openBulkUpload(containerId, prefix) {
+            document.getElementById('bulkContainerId').value = containerId;
+            document.getElementById('bulkPrefix').value = prefix;
+            document.getElementById('bulkText').value = '';
+            openModal('bulkUploadModal');
+        }
+
+        function processBulkUpload() {
+            const text = document.getElementById('bulkText').value;
+            const containerId = document.getElementById('bulkContainerId').value;
+            const prefix = document.getElementById('bulkPrefix').value;
+
+            if (!text.trim()) {
+                alert('Por favor ingresa datos para procesar.');
+                return;
+            }
+
+            const lines = text.trim().split('\n');
+            let processedCount = 0;
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+
+                let parts = line.split('\t');
+                parts = parts.map(p => p.trim()).filter(p => p && p !== '"' && p !== "'");
+                parts = parts.map(p => p.replace(/^["']|["']$/g, ''));
+
+                if (parts.length >= 2) {
+                    const qty = parts[0];
+                    const desc = parts[1];
+                    const partnum = parts.length >= 3 ? parts[2] : '';
+
+                    if (qty && desc) {
+                        const container = document.getElementById(containerId);
+                        const div = document.createElement('div');
+                        div.className = 'part-row';
+                        div.innerHTML = `
+                            <input type="number" name="${prefix}_qty[]" placeholder="Cant." min="1" value="${qty}">
+                            <input type="text" name="${prefix}_desc[]" placeholder="Descripción" value="${desc}">
+                            <input type="text" name="${prefix}_partnum[]" placeholder="Núm. Parte" value="${partnum}">
+                            <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.remove()" style="padding: 0 5px;">&times;</button>
+                        `;
+                        container.appendChild(div);
+                        processedCount++;
+                    }
+                }
+            });
+
+            closeModal('bulkUploadModal');
+            if (processedCount > 0) {
+                alert(`✅ Se agregaron ${processedCount} refacciones correctamente.`);
+            } else {
+                alert('⚠️ No se pudo procesar ninguna línea. Verifica el formato.');
+            }
+        }
+
+        window.onclick = function (event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+
+</html>

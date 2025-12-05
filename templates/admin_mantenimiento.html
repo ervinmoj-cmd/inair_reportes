@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planes de Mantenimiento - INAIR</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>🔧 Planes de Mantenimiento</h1>
+            <div class="user-info">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary btn-sm">Volver al Panel</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm">Cerrar Sesión</a>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <h2>Lista de Planes</h2>
+                <a href="{{ url_for('admin_mantenimiento_nuevo') }}" class="btn btn-primary">+ Nuevo Plan</a>
+            </div>
+
+            {% if plans %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Equipo</th>
+                        <th>Frecuencia</th>
+                        <th>Último Servicio</th>
+                        <th>Próximo Servicio</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plan in plans %}
+                    <tr>
+                        <td><strong>{{ plan.cliente_nombre }}</strong></td>
+                        <td>{{ plan.tipo_equipo }}<br><small style="color: #999;">{{ plan.modelo or 'N/A' }}</small>
+                        </td>
+                        <td>{{ plan.frecuencia_dias }} días</td>
+                        <td>{{ plan.ultimo_servicio or 'N/A' }}</td>
+                        <td><strong>{{ plan.proximo_servicio or 'N/A' }}</strong></td>
+                        <td>
+                            {% if plan.activo %}
+                            <span class="badge badge-active">Activo</span>
+                            {% else %}
+                            <span class="badge badge-inactive">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('admin_mantenimiento_detalle', plan_id=plan.id) }}"
+                                class="btn btn-sm btn-secondary">Ver</a>
+                            <form method="POST" action="{{ url_for('admin_mantenimiento_toggle', plan_id=plan.id) }}"
+                                style="display: inline;">
+                                <button type="submit"
+                                    class="btn btn-sm {% if plan.activo %}btn-danger{% else %}btn-success{% endif %}">
+                                    {% if plan.activo %}Desactivar{% else %}Activar{% endif %}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <div style="font-size: 64px; margin-bottom: 20px; opacity: 0.5;">🔧</div>
+                <h3>No hay planes de mantenimiento</h3>
+                <p>Comienza creando tu primer plan</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+
+</html>

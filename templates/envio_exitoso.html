@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <title>Reporte Enviado</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f7f7fb;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .success-card {
+            max-width: 600px;
+            text-align: center;
+        }
+
+        .check-icon {
+            font-size: 72px;
+            color: #28a745;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="success-card">
+        <div class="card p-5">
+            <div class="check-icon">✅</div>
+            <h2 class="mt-4">¡Reporte Enviado Exitosamente!</h2>
+            <p class="text-muted mt-3">
+                El reporte con folio <strong class="text-primary">{{ folio }}</strong> ha sido enviado por correo
+                electrónico a <strong>{{ email }}</strong>
+            </p>
+            <p class="text-muted small">
+                Una copia también fue enviada a customerservice@inair.com.mx
+            </p>
+            <hr class="my-4">
+            <div class="d-grid gap-2">
+                <a href="{{ url_for('formulario') }}" class="btn btn-primary btn-lg">
+                    Crear Nuevo Reporte
+                </a>
+                {% if session.get('role') == 'admin' %}
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+                    Volver al Panel
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Auto-download PDF
+            setTimeout(function () {
+                const link = document.createElement('a');
+                link.href = "{{ url_for('api_pdf_preview', folio=folio, download='true') }}";
+                link.download = "{{ filename }}";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }, 1000); // Small delay to ensure page renders first
+        });
+    </script>
+</body>
+
+</html>

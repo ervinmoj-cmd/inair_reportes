@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Equipos - INAIR</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1><i class="bi bi-tools"></i> Gestión de Equipos</h1>
+            <div class="user-info">
+                <a href="{{ url_for('admin_calendario') }}" class="btn btn-info btn-sm"><i
+                        class="bi bi-calendar-check"></i> Calendario</a>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary btn-sm">Volver al Panel</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm">Cerrar Sesión</a>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <h2>Lista de Equipos</h2>
+                <div class="header-actions">
+                    <div class="filter-group me-3" style="display: inline-block;">
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="filtro-equipos" id="filtro-todos" value="todos"
+                                checked onchange="filtrarEquipos()">
+                            <label class="btn btn-outline-secondary btn-sm" for="filtro-todos">Todos</label>
+                            <input type="radio" class="btn-check" name="filtro-equipos" id="filtro-polizas"
+                                value="polizas" onchange="filtrarEquipos()">
+                            <label class="btn btn-outline-secondary btn-sm" for="filtro-polizas">Pólizas</label>
+                            <input type="radio" class="btn-check" name="filtro-equipos" id="filtro-generales"
+                                value="generales" onchange="filtrarEquipos()">
+                            <label class="btn btn-outline-secondary btn-sm" for="filtro-generales">Generales</label>
+                        </div>
+                    </div>
+                    <button class="btn btn-info me-2" onclick="abrirModalRefacciones()"><i class="bi bi-gear"></i>
+                        Catálogo Refacciones</button>
+                    <button class="btn btn-primary" onclick="abrirModalNuevo()"><i class="bi bi-plus-circle"></i> Nuevo
+                        Equipo</button>
+                </div>
+            </div>
+
+            <div id="error-message" class="alert alert-danger" style="display:none;"></div>
+
+            <table id="tabla-equipos" class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Serie</th>
+                        <th>Cliente</th>
+                        <th>Tipo</th>
+                        <th>Modelo</th>
+                        <th>Marca</th>
+                        <th>Frecuencia (meses)</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal Equipo -->
+    <div class="modal" id="modalEquipo">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 id="modalEquipoTitle">Nuevo Equipo</h2>
+                <button class="close-modal" onclick="cerrarModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="equipo_id">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cliente *</label>
+                        <select class="form-control" id="cliente_id"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Clasificación *</label>
+                        <select class="form-control" id="clasificacion" onchange="toggleClienteRequirement()">
+                            <option value="General">General</option>
+                            <option value="Póliza">Póliza</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Serie *</label>
+                        <input type="text" class="form-control" id="serie" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo de Equipo *</label>
+                        <select class="form-control" id="tipo_equipo" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Modelo</label>
+                        <input type="text" class="form-control" id="modelo">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Marca</label>
+                        <input type="text" class="form-control" id="marca">
+                    </div>
+                    <div class="form-group">
+                        <label>Potencia</label>
+                        <input type="text" class="form-control" id="potencia">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Frecuencia (meses) *</label>
+                        <input type="number" class="form-control" id="frecuencia_meses" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mes Inicio (1-12) *</label>
+                        <input type="number" class="form-control" id="mes_inicio" min="1" max="12" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Año Inicio *</label>
+                        <input type="number" class="form-control" id="anio_inicio" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Servicio por Defecto</label>
+                    <select class="form-control" id="tipo_servicio_defecto">
+                        <option value="Preventivo">Preventivo</option>
+                        <option value="Correctivo">Correctivo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Servicio Inicial *</label>
+                    <select class="form-control" id="tipo_servicio_inicial">
+                        <option value="2000 Horas">2000 Horas</option>
+                        <option value="4000 Horas">4000 Horas</option>
+                        <option value="6000 Horas">6000 Horas</option>
+                        <option value="8000 Horas">8000 Horas</option>
+                        <option value="16000 Horas">16000 Horas</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Ciclo de Servicio</label>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <select class="form-control" id="tipo_ciclo" onchange="toggleReinicioHoras()">
+                                <option value="continuo">Continuar aumentando (8000→10000→12000...)</option>
+                                <option value="reinicia">Reiniciar después de cierta cantidad</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <select class="form-control" id="reiniciar_en_horas" disabled>
+                                <option value="">-</option>
+                                <option value="8000">Reiniciar en 8000 Horas</option>
+                                <option value="16000">Reiniciar en 16000 Horas</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notas</label>
+                    <textarea class="form-control" id="notas" rows="3"></textarea>
+                </div>
+                <hr>
+                <div class="kits-section">
+                    <h4>Kits de Mantenimiento</h4>
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <label>Servicio:</label>
+                            <select class="form-control" id="kit_service_selector" onchange="renderCurrentKit()">
+                                <option value="2000 Horas">2000 Horas</option>
+                                <option value="4000 Horas">4000 Horas</option>
+                                <option value="6000 Horas">6000 Horas</option>
+                                <option value="8000 Horas">8000 Horas</option>
+                                <option value="16000 Horas">16000 Horas</option>
+                                <option value="Preventivo">Preventivo</option>
+                                <option value="Correctivo">Correctivo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <button type="button" class="btn btn-sm btn-success mt-4" onclick="addPartRow()"><i
+                                    class="bi bi-plus"></i> Agregar</button>
+                            <button type="button" class="btn btn-sm btn-info mt-4" onclick="togglePasteArea()"><i
+                                    class="bi bi-clipboard"></i> Pegar Excel</button>
+                        </div>
+                    </div>
+                    <div id="paste-area-container" style="display:none;" class="mb-3">
+                        <label>Pega desde Excel (Descripción | No. Parte | Cantidad):</label>
+                        <textarea id="paste-area" class="form-control" rows="5"></textarea>
+                        <button type="button" class="btn btn-sm btn-primary mt-2"
+                            onclick="processPastedData()">Importar</button>
+                        <button type="button" class="btn btn-sm btn-secondary mt-2"
+                            onclick="togglePasteArea()">Cancelar</button>
+                    </div>
+                    <table class="table table-bordered table-sm">
+                        <thead>
+                            <tr>
+                                <th>Descripción</th>
+                                <th>No. Parte</th>
+                                <th>Cant.</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="kit-parts-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarEquipo()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Refacciones -->
+    <div class="modal" id="modalRefacciones">
+        <div class="modal-content" style="max-width:800px;">
+            <div class="modal-header">
+                <h2>Catálogo de Refacciones</h2>
+                <button class="close-modal" onclick="cerrarModalRefacciones()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-5">
+                        <label>Tipo de Equipo</label>
+                        <select class="form-control" id="ref_tipo_equipo" onchange="cargarRefacciones()"></select>
+                    </div>
+                    <div class="col-md-5">
+                        <label>Tipo de Servicio</label>
+                        <select class="form-control" id="ref_tipo_servicio" onchange="cargarRefacciones()">
+                            <option value="Preventivo">Preventivo</option>
+                            <option value="Correctivo">Correctivo</option>
+                        </select>
+                    </div>
+                </div>
+                <hr>
+                <div class="card mb-3 p-3 bg-light">
+                    <h5>Agregar</h5>
+                    <div class="row">
+                        <div class="col-md-4"><input type="text" class="form-control" id="new_ref_nombre"
+                                placeholder="Nombre"></div>
+                        <div class="col-md-3"><input type="number" class="form-control" id="new_ref_cantidad" value="1">
+                        </div>
+                        <div class="col-md-3"><input type="text" class="form-control" id="new_ref_unidad"
+                                placeholder="Unidad"></div>
+                        <div class="col-md-2"><button class="btn btn-success w-100"
+                                onclick="agregarRefaccion()">+</button></div>
+                    </div>
+                </div>
+                <table class="table table-sm table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Refacción</th>
+                            <th>Cantidad</th>
+                            <th>Unidad</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-refacciones-body"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModalRefacciones()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        let tablaEquipos;
+        const LISTA_EQUIPOS = {{ LISTA_EQUIPOS | tojson }};
+        let currentKits = {};
+
+        document.addEventListener('DOMContentLoaded', function () {
+            cargarClientes();
+            cargarTiposEquipo();
+            cargarTiposEquipoRef();
+            inicializarTabla();
+            cargarEquipos();
+            document.getElementById('anio_inicio').value = new Date().getFullYear();
+        });
+
+        function inicializarTabla() {
+            tablaEquipos = $('#tabla-equipos').DataTable({
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                order: [[0, 'desc']]
+            });
+        }
+
+        async function cargarClientes() {
+            try {
+                const res = await fetch('/api/clientes');
+                const clientes = await res.json();
+                const select = document.getElementById('cliente_id');
+                select.innerHTML = '<option value="">Seleccione...</option>';
+                clientes.forEach(c => select.innerHTML += `<option value="${c.id}">${c.nombre}</option>`);
+            } catch (e) { console.error(e); }
+        }
+
+        function cargarTiposEquipo() {
+            const select = document.getElementById('tipo_equipo');
+            select.innerHTML = '<option value="">Seleccione...</option>';
+            LISTA_EQUIPOS.forEach(t => select.innerHTML += `<option value="${t}">${t}</option>`);
+        }
+
+        async function cargarEquipos() {
+            try {
+                const res = await fetch('/api/equipos_list');
+                const equipos = await res.json();
+                tablaEquipos.clear();
+                equipos.forEach(e => {
+                    tablaEquipos.row.add([
+                        e.serie,
+                        e.cliente_nombre || 'Sin cliente',
+                        e.tipo_equipo,
+                        e.modelo || '—',
+                        e.marca || '—',
+                        e.frecuencia_meses,
+                        `<button class="btn btn-sm btn-info" onclick="editarEquipo(${e.id})">Editar</button> <button class="btn btn-sm btn-danger" onclick="eliminarEquipo(${e.id})">Eliminar</button>`
+                    ]);
+                });
+                tablaEquipos.draw();
+            } catch (e) { console.error(e); alert('Error cargando equipos'); }
+        }
+
+        function abrirModalNuevo() {
+            document.getElementById('modalEquipoTitle').textContent = 'Nuevo Equipo';
+            document.getElementById('equipo_id').value = '';
+            document.getElementById('cliente_id').value = '';
+            document.getElementById('serie').value = '';
+            document.getElementById('modelo').value = '';
+            document.getElementById('marca').value = '';
+            document.getElementById('potencia').value = '';
+            document.getElementById('frecuencia_meses').value = '3';
+            document.getElementById('mes_inicio').value = new Date().getMonth() + 1;
+            document.getElementById('notas').value = '';
+            document.getElementById('clasificacion').value = 'General';
+            document.getElementById('tipo_servicio_inicial').value = '2000 Horas';
+            document.getElementById('tipo_ciclo').value = 'continuo';
+            document.getElementById('reiniciar_en_horas').value = '';
+            toggleReinicioHoras();
+            currentKits = {};
+            document.getElementById('kit_service_selector').value = '2000 Horas';
+            renderCurrentKit();
+            toggleClienteRequirement();
+            document.getElementById('modalEquipo').classList.add('active');
+        }
+
+        async function editarEquipo(id) {
+            try {
+                const res = await fetch('/api/equipos_list');
+                const equipos = await res.json();
+                const equipo = equipos.find(e => e.id === id);
+                if (!equipo) return alert('No encontrado');
+
+                document.getElementById('modalEquipoTitle').textContent = 'Editar Equipo';
+                document.getElementById('equipo_id').value = equipo.id;
+                document.getElementById('cliente_id').value = equipo.cliente_id || '';
+                document.getElementById('serie').value = equipo.serie;
+                document.getElementById('tipo_equipo').value = equipo.tipo_equipo;
+                document.getElementById('modelo').value = equipo.modelo || '';
+                document.getElementById('marca').value = equipo.marca || '';
+                document.getElementById('potencia').value = equipo.potencia || '';
+                document.getElementById('frecuencia_meses').value = equipo.frecuencia_meses;
+                document.getElementById('mes_inicio').value = equipo.mes_inicio;
+                document.getElementById('anio_inicio').value = equipo.anio_inicio;
+                document.getElementById('tipo_servicio_defecto').value = equipo.tipo_servicio_defecto || 'Preventivo';
+                document.getElementById('notas').value = equipo.notas || '';
+                document.getElementById('clasificacion').value = equipo.clasificacion || 'General';
+                document.getElementById('tipo_servicio_inicial').value = equipo.tipo_servicio_inicial || '2000 Horas';
+                if (equipo.reiniciar_en_horas) {
+                    document.getElementById('tipo_ciclo').value = 'reinicia';
+                    document.getElementById('reiniciar_en_horas').value = equipo.reiniciar_en_horas;
+                } else {
+                    document.getElementById('tipo_ciclo').value = 'continuo';
+                    document.getElementById('reiniciar_en_horas').value = '';
+                }
+                toggleReinicioHoras();
+
+                currentKits = {};
+                try {
+                    const resKits = await fetch(`/api/equipos/${id}/kits`);
+                    if (resKits.ok) {
+                        const k = await resKits.json();
+                        k.forEach(item => {
+                            try { currentKits[item.tipo_servicio] = JSON.parse(item.refacciones_json); }
+                            catch (e) { }
+                        });
+                    }
+                } catch (e) { }
+
+                document.getElementById('kit_service_selector').value = '2000 Horas';
+                renderCurrentKit();
+                toggleClienteRequirement();
+                document.getElementById('modalEquipo').classList.add('active');
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function guardarEquipo() {
+            try {
+                const id = document.getElementById('equipo_id').value;
+                const data = {
+                    cliente_id: document.getElementById('cliente_id').value,
+                    serie: document.getElementById('serie').value,
+                    tipo_equipo: document.getElementById('tipo_equipo').value,
+                    modelo: document.getElementById('modelo').value,
+                    marca: document.getElementById('marca').value,
+                    potencia: document.getElementById('potencia').value,
+                    frecuencia_meses: parseInt(document.getElementById('frecuencia_meses').value),
+                    mes_inicio: parseInt(document.getElementById('mes_inicio').value),
+                    anio_inicio: parseInt(document.getElementById('anio_inicio').value),
+                    tipo_servicio_defecto: document.getElementById('tipo_servicio_defecto').value,
+                    notas: document.getElementById('notas').value,
+                    tipo_servicio_inicial: document.getElementById('tipo_servicio_inicial').value,
+                    reiniciar_en_horas: document.getElementById('reiniciar_en_horas').value || null,
+                    clasificacion: document.getElementById('clasificacion').value
+                };
+
+                const url = id ? `/api/equipos_update/${id}` : '/api/equipos_create';
+                const method = id ? 'PUT' : 'POST';
+                const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                const result = await res.json();
+
+                if (result.success) {
+                    await saveKits(id || result.id);
+                    cerrarModal();
+                    cargarEquipos();
+                    alert(id ? 'Actualizado' : 'Creado');
+                } else {
+                    alert('Error: ' + (result.error || 'Desconocido'));
+                }
+            } catch (e) { alert('Error: ' + e.message); }
+        }
+
+        async function eliminarEquipo(id) {
+            if (!confirm('¿Eliminar?')) return;
+            try {
+                const res = await fetch(`/api/equipos_delete/${id}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (result.success) { cargarEquipos(); alert('Eliminado'); }
+            } catch (e) { alert('Error'); }
+        }
+
+        function cerrarModal() {
+            document.getElementById('modalEquipo').classList.remove('active');
+        }
+
+        window.onclick = function (e) {
+            if (e.target.classList.contains('modal')) e.target.classList.remove('active');
+        }
+
+        function filtrarEquipos() {
+            const filtro = document.querySelector('input[name="filtro-equipos"]:checked').value;
+            $.fn.dataTable.ext.search.pop();
+            if (filtro === 'todos') { tablaEquipos.draw(); return; }
+            $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+                const cliente = data[1];
+                const sinCliente = cliente === 'Sin cliente' || !cliente || cliente === 'null';
+                if (filtro === 'generales') return sinCliente;
+                if (filtro === 'polizas') return !sinCliente;
+                return true;
+            });
+            tablaEquipos.draw();
+        }
+
+        function abrirModalRefacciones() {
+            document.getElementById('modalRefacciones').classList.add('active');
+            cargarRefacciones();
+        }
+
+        function cerrarModalRefacciones() {
+            document.getElementById('modalRefacciones').classList.remove('active');
+        }
+
+        function cargarTiposEquipoRef() {
+            const select = document.getElementById('ref_tipo_equipo');
+            select.innerHTML = '';
+            LISTA_EQUIPOS.forEach(t => select.innerHTML += `<option value="${t}">${t}</option>`);
+        }
+
+        async function cargarRefacciones() {
+            const tipoEquipo = document.getElementById('ref_tipo_equipo').value;
+            const tipoServicio = document.getElementById('ref_tipo_servicio').value;
+            if (!tipoEquipo) return;
+            try {
+                const res = await fetch('/api/refacciones_catalogo');
+                const todas = await res.json();
+                const filtradas = todas.filter(r => r.tipo_equipo === tipoEquipo && r.tipo_servicio === tipoServicio);
+                const tbody = document.getElementById('tabla-refacciones-body');
+                tbody.innerHTML = '';
+                filtradas.forEach(r => {
+                    tbody.innerHTML += `<tr><td>${r.nombre_refaccion}</td><td>${r.cantidad}</td><td>${r.unidad || ''}</td><td><button class="btn btn-sm btn-danger" onclick="eliminarRefaccion(${r.id})"><i class="bi bi-trash"></i></button></td></tr>`;
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        async function agregarRefaccion() {
+            const data = {
+                tipo_equipo: document.getElementById('ref_tipo_equipo').value,
+                tipo_servicio: document.getElementById('ref_tipo_servicio').value,
+                nombre_refaccion: document.getElementById('new_ref_nombre').value,
+                cantidad: parseFloat(document.getElementById('new_ref_cantidad').value),
+                unidad: document.getElementById('new_ref_unidad').value
+            };
+            if (!data.nombre_refaccion || !data.cantidad) return alert('Datos incompletos');
+            try {
+                const res = await fetch('/api/refacciones_catalogo/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                const result = await res.json();
+                if (result.success) {
+                    document.getElementById('new_ref_nombre').value = '';
+                    document.getElementById('new_ref_cantidad').value = '1';
+                    document.getElementById('new_ref_unidad').value = '';
+                    cargarRefacciones();
+                }
+            } catch (e) { alert('Error'); }
+        }
+
+        async function eliminarRefaccion(id) {
+            if (!confirm('¿Eliminar?')) return;
+            try {
+                const res = await fetch(`/api/refacciones_catalogo/${id}`, { method: 'DELETE' });
+                if ((await res.json()).success) cargarRefacciones();
+            } catch (e) { alert('Error'); }
+        }
+
+
+        function toggleReinicioHoras() {
+            const tipoCiclo = document.getElementById('tipo_ciclo').value;
+            const reinicioSelect = document.getElementById('reiniciar_en_horas');
+            if (tipoCiclo === 'reinicia') {
+                reinicioSelect.disabled = false;
+                if (!reinicioSelect.value) reinicioSelect.value = '8000';
+            } else {
+                reinicioSelect.disabled = true;
+                reinicioSelect.value = '';
+            }
+        }
+
+        function toggleClienteRequirement() {
+            const select = document.getElementById('cliente_id');
+            if (document.getElementById('clasificacion').value === 'Póliza') {
+                select.setAttribute('required', 'true');
+            } else {
+                select.removeAttribute('required');
+            }
+        }
+
+        function renderCurrentKit() {
+            const serviceType = document.getElementById('kit_service_selector').value;
+            const tbody = document.getElementById('kit-parts-body');
+            tbody.innerHTML = '';
+            const parts = currentKits[serviceType] || [];
+            parts.forEach((p, i) => {
+                tbody.innerHTML += `<tr>
+                    <td><input type="text" class="form-control form-control-sm" value="${p.description || ''}" onchange="updatePart(${i},'description',this.value)"></td>
+                    <td><input type="text" class="form-control form-control-sm" value="${p.part_number || ''}" onchange="updatePart(${i},'part_number',this.value)"></td>
+                    <td><input type="number" class="form-control form-control-sm" value="${p.quantity || 1}" style="width:70px;" onchange="updatePart(${i},'quantity',this.value)"></td>
+                    <td><button type="button" class="btn btn-sm btn-danger" onclick="removePart(${i})">&times;</button></td>
+                </tr>`;
+            });
+        }
+
+        function addPartRow() {
+            const serviceType = document.getElementById('kit_service_selector').value;
+            if (!currentKits[serviceType]) currentKits[serviceType] = [];
+            currentKits[serviceType].push({ description: '', part_number: '', quantity: 1 });
+            renderCurrentKit();
+        }
+
+        function updatePart(index, field, value) {
+            const serviceType = document.getElementById('kit_service_selector').value;
+            if (currentKits[serviceType] && currentKits[serviceType][index]) {
+                currentKits[serviceType][index][field] = value;
+            }
+        }
+
+        function removePart(index) {
+            const serviceType = document.getElementById('kit_service_selector').value;
+            if (currentKits[serviceType]) {
+                currentKits[serviceType].splice(index, 1);
+                renderCurrentKit();
+            }
+        }
+
+        function togglePasteArea() {
+            const container = document.getElementById('paste-area-container');
+            const area = document.getElementById('paste-area');
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                area.value = '';
+                area.focus();
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        function processPastedData() {
+            const area = document.getElementById('paste-area');
+            const data = area.value.trim();
+            if (!data) return alert('Sin datos');
+
+            const rows = data.split('\n').filter(r => r.trim());
+            const serviceType = document.getElementById('kit_service_selector').value;
+            if (!currentKits[serviceType]) currentKits[serviceType] = [];
+
+            let count = 0;
+            rows.forEach(row => {
+                const cols = row.split('\t');
+                if (cols.length >= 2) {
+                    const desc = (cols[0] || '').trim();
+                    const part = (cols[1] || '').trim();
+                    const qty = cols[2] && !isNaN(parseInt(cols[2])) ? parseInt(cols[2]) : 1;
+                    if (desc || part) {
+                        currentKits[serviceType].push({ description: desc, part_number: part, quantity: qty });
+                        count++;
+                    }
+                }
+            });
+
+            renderCurrentKit();
+            togglePasteArea();
+            alert(`Importadas ${count} refacciones`);
+        }
+
+        async function saveKits(equipoId) {
+            const list = Object.keys(currentKits).map(k => ({ tipo_servicio: k, refacciones_json: JSON.stringify(currentKits[k]) }));
+            await fetch(`/api/equipos/${equipoId}/kits`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(list) });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Servicios - INAIR</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>📋 Historial de Servicios</h1>
+            <div class="user-info">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary btn-sm">Volver al Panel</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm">Cerrar Sesión</a>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+            <form method="GET" action="{{ url_for('admin_historial') }}">
+                <div class="filter-row">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Buscar (Folio, Cliente, Técnico)</label>
+                        <input type="text" name="search" placeholder="Buscar..."
+                            value="{{ request.args.get('search', '') }}">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Tipo de Servicio</label>
+                        <select name="tipo_servicio">
+                            <option value="">Todos</option>
+                            <option value="Preventivo" {% if request.args.get('tipo_servicio')=='Preventivo'
+                                %}selected{% endif %}>Preventivo</option>
+                            <option value="Correctivo" {% if request.args.get('tipo_servicio')=='Correctivo'
+                                %}selected{% endif %}>Correctivo</option>
+                            <option value="Diagnóstico" {% if request.args.get('tipo_servicio')=='Diagnóstico'
+                                %}selected{% endif %}>Diagnóstico</option>
+                            <option value="Bitácora" {% if request.args.get('tipo_servicio')=='Bitácora' %}selected{%
+                                endif %}>Bitácora</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Fecha Inicio</label>
+                        <input type="date" name="fecha_inicio" value="{{ request.args.get('fecha_inicio', '') }}">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label>Fecha Fin</label>
+                        <input type="date" name="fecha_fin" value="{{ request.args.get('fecha_fin', '') }}">
+                    </div>
+                    <div>
+                        <button type="submit" class="btn btn-primary">Filtrar</button>
+                        <a href="{{ url_for('admin_historial') }}" class="btn btn-secondary">Limpiar</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <h2>Reportes Generados ({{ reports|length }})</h2>
+            </div>
+
+            {% if reports %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Folio</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Tipo Equipo</th>
+                        <th>Tipo Servicio</th>
+                        <th>Técnico</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td><strong>{{ report.folio }}</strong></td>
+                        <td>{{ report.fecha }}</td>
+                        <td>{{ report.cliente }}</td>
+                        <td>{{ report.tipo_equipo or 'N/A' }}</td>
+                        <td>
+                            {% if report.tipo_servicio == 'Preventivo' %}
+                            <span class="badge badge-active">{{ report.tipo_servicio }}</span>
+                            {% elif report.tipo_servicio == 'Correctivo' %}
+                            <span class="badge" style="background: #f39c12; color: white;">{{ report.tipo_servicio
+                                }}</span>
+                            {% else %}
+                            <span class="badge badge-technician">{{ report.tipo_servicio }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ report.tecnico }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary" onclick="viewReport('{{ report.folio }}')">Ver
+                                Detalles</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <div style="font-size: 64px; margin-bottom: 20px; opacity: 0.5;">📋</div>
+                <h3>No hay reportes registrados</h3>
+                <p>Los reportes generados aparecerán aquí</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Report Details Modal -->
+    <div id="reportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Detalles del Reporte</h2>
+                <button class="close-modal" onclick="closeModal('reportModal')">&times;</button>
+            </div>
+            <div id="reportDetails">
+                <p style="text-align: center; color: #999;">Cargando...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function viewReport(folio) {
+            openModal('reportModal');
+            fetch(`/admin/historial/${folio}`)
+                .then(response => response.json())
+                .then(data => {
+                    const html = `
+                        <div style="line-height: 1.8;">
+                            <p><strong>Folio:</strong> ${data.folio}</p>
+                            <p><strong>Fecha:</strong> ${data.fecha}</p>
+                            <p><strong>Cliente:</strong> ${data.cliente}</p>
+                            <p><strong>Tipo de Equipo:</strong> ${data.tipo_equipo || 'N/A'}</p>
+                            <p><strong>Modelo:</strong> ${data.modelo || 'N/A'}</p>
+                            <p><strong>Serie:</strong> ${data.serie || 'N/A'}</p>
+                            <p><strong>Marca:</strong> ${data.marca || 'N/A'}</p>
+                            <p><strong>Potencia:</strong> ${data.potencia || 'N/A'}</p>
+                            <p><strong>Tipo de Servicio:</strong> ${data.tipo_servicio}</p>
+                            <p><strong>Descripción:</strong> ${data.descripcion_servicio || 'N/A'}</p>
+                            <p><strong>Técnico:</strong> ${data.tecnico}</p>
+                            <p><strong>Localidad:</strong> ${data.localidad || 'N/A'}</p>
+                        </div>
+                    `;
+                    document.getElementById('reportDetails').innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('reportDetails').innerHTML = '<p style="color: red;">Error al cargar los detalles</p>';
+                });
+        }
+
+        window.onclick = function (event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+
+</html>

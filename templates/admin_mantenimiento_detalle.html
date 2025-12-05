@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle del Plan - INAIR</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>🔧 Detalle del Plan de Mantenimiento</h1>
+            <div class="user-info">
+                <a href="{{ url_for('admin_mantenimiento') }}" class="btn btn-secondary btn-sm">Volver a Planes</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm">Cerrar Sesión</a>
+            </div>
+        </div>
+
+        <!-- Plan Info -->
+        <div class="table-container" style="margin-bottom: 20px;">
+            <div class="table-header">
+                <h2>Información del Plan</h2>
+                {% if plan.activo %}
+                <span class="badge badge-active">Activo</span>
+                {% else %}
+                <span class="badge badge-inactive">Inactivo</span>
+                {% endif %}
+            </div>
+            <div style="padding: 30px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; line-height: 2;">
+                    <div>
+                        <p><strong>Cliente:</strong> {{ plan.cliente_nombre }}</p>
+                        <p><strong>Tipo de Equipo:</strong> {{ plan.tipo_equipo }}</p>
+                        <p><strong>Modelo:</strong> {{ plan.modelo or 'N/A' }}</p>
+                        <p><strong>Serie:</strong> {{ plan.serie or 'N/A' }}</p>
+                    </div>
+                    <div>
+                        <p><strong>Frecuencia:</strong> {{ plan.frecuencia_dias }} días</p>
+                        <p><strong>Último Servicio:</strong> {{ plan.ultimo_servicio or 'N/A' }}</p>
+                        <p><strong>Próximo Servicio:</strong> <span style="color: #d20000; font-weight: bold;">{{
+                                plan.proximo_servicio or 'N/A' }}</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Services History -->
+        <div class="table-container">
+            <div class="table-header">
+                <h2>Historial de Servicios</h2>
+                <button class="btn btn-primary" onclick="openModal('addServiceModal')">+ Agregar Servicio</button>
+            </div>
+
+            {% if services %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                        <th>Técnico</th>
+                        <th>Folio</th>
+                        <th>Refacciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for service in services %}
+                    <tr>
+                        <td><strong>{{ service.fecha_servicio }}</strong></td>
+                        <td>{{ service.descripcion }}</td>
+                        <td>{{ service.tecnico or 'N/A' }}</td>
+                        <td>{{ service.folio or 'N/A' }}</td>
+                        <td>
+                            {% if service.parts %}
+                            <button class="btn btn-sm btn-secondary" onclick="viewParts({{ service.parts|tojson }})">Ver
+                                ({{ service.parts|length }})</button>
+                            {% else %}
+                            <span style="color: #999;">Sin refacciones</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <div style="font-size: 64px; margin-bottom: 20px; opacity: 0.5;">📝</div>
+                <h3>No hay servicios registrados</h3>
+                <p>Agrega el primer servicio a este plan</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Add Service Modal -->
+    <div id="addServiceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Agregar Servicio</h2>
+                <button class="close-modal" onclick="closeModal('addServiceModal')">&times;</button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_mantenimiento_agregar_servicio', plan_id=plan.id) }}">
+                <div class="form-group">
+                    <label>Fecha del Servicio *</label>
+                    <input type="date" name="fecha_servicio" required>
+                </div>
+                <div class="form-group">
+                    <label>Descripción *</label>
+                    <textarea name="descripcion" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Técnico</label>
+                        <input type="text" name="tecnico">
+                    </div>
+                    <div class="form-group">
+                        <label>Folio (si existe)</label>
+                        <input type="text" name="folio">
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 20px; margin-bottom: 15px;">Refacciones</h3>
+                <div id="partsContainer">
+                    <div class="form-row" style="margin-bottom: 10px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <input type="text" name="part_nombre[]" placeholder="Nombre de la refacción">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; max-width: 100px;">
+                            <input type="number" name="part_cantidad[]" placeholder="Cant." min="1" value="1">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <input type="text" name="part_descripcion[]" placeholder="Descripción (opcional)">
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="addPartRow()">+ Agregar
+                    Refacción</button>
+
+                <div style="margin-top: 30px;">
+                    <button type="submit" class="btn btn-primary">Guardar Servicio</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Parts Modal -->
+    <div id="partsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Refacciones Utilizadas</h2>
+                <button class="close-modal" onclick="closeModal('partsModal')">&times;</button>
+            </div>
+            <div id="partsDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function addPartRow() {
+            const container = document.getElementById('partsContainer');
+            const row = document.createElement('div');
+            row.className = 'form-row';
+            row.style.marginBottom = '10px';
+            row.innerHTML = `
+                <div class="form-group" style="margin-bottom: 0;">
+                    <input type="text" name="part_nombre[]" placeholder="Nombre de la refacción">
+                </div>
+                <div class="form-group" style="margin-bottom: 0; max-width: 100px;">
+                    <input type="number" name="part_cantidad[]" placeholder="Cant." min="1" value="1">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <input type="text" name="part_descripcion[]" placeholder="Descripción (opcional)">
+                </div>
+            `;
+            container.appendChild(row);
+        }
+
+        function viewParts(parts) {
+            let html = '<table style="width: 100%;"><thead><tr><th>Nombre</th><th>Cantidad</th><th>Descripción</th></tr></thead><tbody>';
+            parts.forEach(part => {
+                html += `<tr>
+                    <td><strong>${part.nombre}</strong></td>
+                    <td>${part.cantidad}</td>
+                    <td>${part.descripcion || 'N/A'}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('partsDetails').innerHTML = html;
+            openModal('partsModal');
+        }
+
+        window.onclick = function (event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+
+</html>

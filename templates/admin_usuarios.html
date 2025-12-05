@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Usuarios - INAIR</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>👤 Gestión de Usuarios</h1>
+            <div class="user-info">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary btn-sm">Volver al Panel</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm">Cerrar Sesión</a>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <h2>Lista de Usuarios</h2>
+                <button class="btn btn-primary" onclick="openModal('addUserModal')">+ Agregar Usuario</button>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Nombre</th>
+                        <th>Prefijo</th>
+                        <th>Rol</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td><strong>{{ user.username }}</strong></td>
+                        <td>{{ user.nombre }}</td>
+                        <td><span class="badge badge-admin">{{ user.prefijo }}</span></td>
+                        <td>
+                            {% if user.role == 'admin' %}
+                            <span class="badge badge-admin">Administrador</span>
+                            {% else %}
+                            <span class="badge badge-technician">Técnico</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.username != session.user %}
+                            <button class="btn btn-sm btn-danger"
+                                onclick="deleteUser({{ user.id }}, '{{ user.username }}')">Eliminar</button>
+                            {% else %}
+                            <span style="color: #999; font-size: 12px;">Usuario actual</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Agregar Usuario</h2>
+                <button class="close-modal" onclick="closeModal('addUserModal')">&times;</button>
+            </div>
+            <form method="POST" action="{{ url_for('admin_usuarios_nuevo') }}" autocomplete="off">
+                <div class="form-group">
+                    <label>Usuario (login) *</label>
+                    <input type="text" name="username" required pattern="[a-z0-9]+"
+                        title="Solo letras minúsculas y números" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña *</label>
+                    <input type="password" name="password" required minlength="6" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label>Nombre Completo *</label>
+                    <input type="text" name="nombre" required autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Prefijo (para folios) *</label>
+                        <input type="text" name="prefijo" required maxlength="2" pattern="[A-Z]+"
+                            title="1-2 letras mayúsculas" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label>Rol *</label>
+                        <select name="role" required>
+                            <option value="technician">Técnico</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Crear Usuario</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.add('active');
+            // Reset form when opening
+            const form = modal.querySelector('form');
+            if (form) form.reset();
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('active');
+            // Reset form when closing
+            const form = modal.querySelector('form');
+            if (form) form.reset();
+        }
+
+        function deleteUser(id, username) {
+            if (confirm(`¿Estás seguro de eliminar al usuario "${username}"?`)) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/admin/usuarios/eliminar/${id}`;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        window.onclick = function (event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+
+</html>
